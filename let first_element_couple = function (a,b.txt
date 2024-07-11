@@ -1,0 +1,395 @@
+let first_element_couple = function (a,b) -> a;;
+let second_element_couple = function (a,b) -> b;;
+
+let compose f g = function x -> f (g x);;
+
+
+let rec generate_list = function 
+    n when n < 0 -> []
+  | n -> (generate_list (n-1))@[n];;
+
+generate_list 5;;
+generate_list (-1);;
+
+let rec foldr = function f -> function z -> function
+    [] -> z
+  | a::l -> f a (foldr f z l);;
+
+let rec foldl = function f -> function z -> function
+    [] -> z
+  | a::b -> foldl f (f a z) b;;
+
+let cons = function a -> function l -> a::l;;
+
+let map = function f -> function l -> foldr (compose cons f) [] l;;
+map (function x -> 2 * x) [1;2;3];;
+
+let invert = function l -> foldl cons [] l;;
+invert [1;2;3];;
+
+let length = function l -> foldr (function a -> function i -> 1 + i) 0 l;;
+length [1;2;3;4];;
+
+let append = function l1 -> function l2 -> foldr cons l2 l1;;
+append [1;2;3;4] [5;6;7];;
+
+let max_list = function
+    [] -> failwith "An empty list has no max!"
+  | a::l -> foldl max a l;;
+
+let min_list = function
+    [] -> failwith "An empty list has no min!"
+  | a::l -> foldl min a l;;
+
+let li = [1;4;8;2];;
+max_list li;;
+min_list li;;
+
+let max_list_with_index = function l ->
+  let iter = function 
+      [] -> failwith "An empty list has no max!"
+    | a::l -> foldl
+	(function b -> function
+	     (c1,c2,c3) when b > c1 -> (b,[c3],c3+1)
+	   | (c1,c2,c3) when b = c1 -> (b,c3::c2, c3+1)
+	   | (c1,c2,c3)             -> (c1,c2, c3+1)
+	)
+	  (a,[0],1) l
+  in let (a,b,c) = iter l in (a,b);;
+
+let min_list_with_index = function l ->
+  let iter = function 
+      [] -> failwith "An empty list has no min!"
+    | a::l -> foldl
+	(function b -> function
+	     (c1,c2,c3) when b < c1 -> (b,[c3],c3+1)
+	   | (c1,c2,c3) when b = c1 -> (b,c3::c2, c3+1)
+	   | (c1,c2,c3)             -> (c1,c2, c3+1)
+	)
+	  (a,[0],1) l
+  in let (a,b,c) = iter l in (a,b);;
+
+let li = [1;8;4;8;2];;
+max_list_with_index li;;
+min_list_with_index li;;
+
+let draw_randomly_an_element = function
+    [] -> failwith "Cannot draw an element from an empty list !"
+  | a::l -> foldl (function b -> function 
+		       c when ((Random.float 1.0) < 0.5) -> b 
+		     | c -> c) a l;;
+
+let li = [1;8;2;3];;
+draw_randomly_an_element li;;
+
+let draw_randomly_a_position = function l -> Random.int (length l);;
+
+let rec consume_with_rest = function p -> function l -> match (l,p) with
+    (_, 0) -> ([],l)
+  | ([], _) -> failwith "Not enough elements"
+  | (a::r,_) -> let (l1,l2) = consume_with_rest (p-1) r in (a::l1,l2);;
+
+consume_with_rest 2 [1;2;3;4;5;6];;
+
+let consume = function p -> function l -> first_element_couple (consume_with_rest p l);;
+
+consume 2 [1;2;3;4;5];;
+
+let rec consume_spaced_with_rest = function n -> function p -> function l -> 
+  match n with 
+      0 -> ([],l)
+    | 1 -> let (l1, rest) = consume_with_rest 1 l in (l1,rest)
+    | _ -> let (l1,rest) = consume_with_rest 1 l in 
+      let (l2,l3) = consume_with_rest (p-1) rest in 
+      let (l4,l5) = consume_spaced_with_rest (n-1) p l3 in
+	(l1@l4, l2@l5);;
+
+consume_spaced_with_rest 2 5 [1;2;3;4;5;6] ;;
+
+let consume_spaced = function n -> function p -> function l ->
+  first_element_couple (consume_spaced_with_rest n p l);;
+
+consume_spaced 2 5 [1;2;3;4;5;6] ;;
+
+let rec arange_list = function p -> function l ->
+  match l with 
+      [] -> []
+    | _ -> let (l1,rest) = consume_with_rest p l in l1::arange_list p rest;;
+
+arange_list 3 [1;2;3;4;5;6];;
+
+let rec arange_list_spaced = function n -> function p -> function l ->
+  match l with 
+      [] -> []
+    | _ -> let (l1, rest) = consume_spaced_with_rest n p l in l1::(arange_list_spaced n (p-1) rest);;
+
+arange_list_spaced 2 3 [1;2;3;4;5;6];;
+
+let rec replace = function a -> function b -> function i -> function l ->
+  match (i,l) with
+    (_,[]) -> failwith "Element non trouvÃ©"
+  | (0,c::rest) when c=a -> b::rest
+  | (_,c::rest) when c=a -> a::(replace a b (i-1) rest)
+  | (_,c::rest) -> c::(replace a b i rest);;
+
+replace "a" "e" 0 ["a";"b";"a"; "c"];;
+
+type 'a tree = Leaf of 'a | LazyNode of 'a * (unit -> 'a tree) | Node of 'a * 'a tree list;;
+
+let node = function
+    Leaf(m) -> m
+  | Node(m,_) -> m
+  | LazyNode(m,_) -> m;;
+
+let rec sons = function
+   Leaf(_) -> failwith "Trying to get the sons of a leaf !!"
+ | Node(_,l) -> l
+ | LazyNode(_,f) -> sons (f());;
+
+let label_list l= map node l;;
+
+let exemple_tree = Node(1, [Node(2,[Leaf(3); Leaf(4)]); Leaf(5); Leaf(6)]);;
+
+let example_sons = function n -> [n+1; 2*n; n*n];;
+let rec example_tree = function n -> LazyNode(n, function () -> Node(n, map example_tree (example_sons n)));;
+let tree_test = example_tree 3;;
+sons(tree_test);;
+map sons (sons tree_test);;
+label_list (sons tree_test);;
+
+
+type state = Empty | X | O ;;
+type tictactoe = Tictactoe of state list;;
+type tictactoe_tree = tictactoe tree;;
+
+let next_symbol = function 
+    X -> O 
+  | O -> X 
+  | Empty -> failwith "Empty has no sucessor !";;
+
+
+let tictactoe_empty = Tictactoe([Empty; Empty; Empty; Empty; Empty; Empty; Empty; Empty; Empty]);;
+let tictactoe_draw = Tictactoe([X; X; O; O; O; X; X; X; O]);;
+let tictactoe_X = Tictactoe([X; X; X; O; O; Empty; Empty; Empty; Empty]);;
+let tictactoe_O = Tictactoe([O; O; O; X; X; Empty; Empty; Empty; Empty]);;
+let tictactoe_test =  Tictactoe([Empty ; X ; X ; O ; Empty ; O ; X ; Empty; O]);;
+
+let state_to_string = function
+    Empty -> " _ "
+  | X -> " X "
+  | O -> " O ";;
+
+let sting_list_to_string = function s_list ->
+  let s_with_lines = arange_list 3 s_list in 
+  foldr (function line -> function str -> 
+	   (foldr (function elem -> function str -> elem^str) "\n" line)^str) "" s_with_lines;;
+
+let tictactoe_to_string = function Tictactoe(t) -> 
+  let t_with_lines = arange_list 3 t in 
+  foldr (function line -> function str -> 
+	   (foldr (function state -> function str -> (state_to_string state)^str) "\n" line)^str) "" t_with_lines;;
+
+let display_tictactoe = function t -> print_string (tictactoe_to_string t);;
+
+display_tictactoe tictactoe_empty;;
+display_tictactoe tictactoe_X;;
+
+let display_tictactoe_with_choice = function Tictactoe(t) -> 
+  let rec display_state = function n -> function   
+  [] -> []
+    | Empty::l -> ("(" ^ (string_of_int n) ^ ") ")::(display_state (n+1) l)
+    | symb::l -> ( state_to_string(symb) ^ " ") :: ( display_state n l)
+  in
+  let tictactoe_string = sting_list_to_string (display_state 0 t) in
+  print_string tictactoe_string;;
+
+display_tictactoe_with_choice tictactoe_empty;;
+display_tictactoe_with_choice tictactoe_X;;
+display_tictactoe_with_choice tictactoe_test;;
+
+
+let extract_lines = function Tictactoe(t) -> arange_list 3 t;;
+let extract_columns = function Tictactoe(t) -> arange_list_spaced 3 3 t;;
+let extract_diagonals = function Tictactoe(t) -> [(consume_spaced 3 4 t) ; (consume_spaced 3 2 (second_element_couple (consume_with_rest 2 t)))];;
+
+extract_lines(tictactoe_X);;
+extract_columns(tictactoe_X);;
+extract_diagonals(tictactoe_X);;
+
+let is_winning_board = function board -> function symbol ->
+  let rec disjonction = function 
+      [] -> false
+    | a::l when a -> true
+    | a::l -> disjonction l
+  in
+   let rec test_sequence = function  
+       [] -> true 
+     | a::b when a!=symbol -> false 
+     | a::b -> test_sequence b  
+  and l = (extract_lines board)@(extract_columns board)@(extract_diagonals board) 
+  in disjonction (map test_sequence l);;
+
+is_winning_board tictactoe_X X;;
+is_winning_board tictactoe_X O;;
+is_winning_board tictactoe_O X;;
+is_winning_board tictactoe_O O;;
+is_winning_board tictactoe_empty X;;
+is_winning_board tictactoe_empty O;;
+
+let number_remaining_plays = function Tictactoe(t) ->
+  let rec count_empty = function 
+      [] -> 0
+    | Empty::l -> 1 + (count_empty l)
+    | _::l -> count_empty l 
+  in count_empty(t);;
+
+let is_draw_board = function board ->
+  let rec test_sequence=  function 
+      [] -> true
+    | Empty::rest -> false
+    | _::rest -> test_sequence rest
+  in
+  not(is_winning_board board X) & 
+    not(is_winning_board board O) & 
+    ( (number_remaining_plays board) == 0);;  
+
+let end_of_game = function board -> 
+  (is_winning_board board X) or (is_winning_board board O) or (is_draw_board board);;
+
+end_of_game(tictactoe_empty);;
+end_of_game(tictactoe_X);;
+end_of_game(tictactoe_O);;
+end_of_game(tictactoe_draw);;
+
+
+
+
+let next_board = function Tictactoe(t) -> function symb -> function i -> 
+  Tictactoe(replace Empty symb i t);;
+
+let next_possible_boards = function board -> function symb ->
+  map (next_board board symb) (generate_list (number_remaining_plays(board)-1));;
+
+next_possible_boards tictactoe_empty X;;
+next_possible_boards tictactoe_empty O;;
+
+let rec gametree = function symbol -> function 
+    board when end_of_game board -> Leaf((symbol, board))
+  | board -> let f = function s2 -> function b2 -> LazyNode((s2, b2), function () -> gametree s2 b2)
+    in
+    Node((symbol, board), map (f (next_symbol symbol)) (next_possible_boards board symbol));;
+
+gametree X tictactoe_test;;
+
+
+
+let static_evaluation = function symb -> function 
+    board when (is_winning_board board symb) -> 1.0
+  | board when (is_winning_board board (next_symbol symb)) -> -1.0
+  | _ -> 0.0;;
+
+static_evaluation X tictactoe_X;;
+static_evaluation O tictactoe_X;;
+static_evaluation X tictactoe_O;;
+static_evaluation O tictactoe_O;;
+static_evaluation X tictactoe_draw;;
+static_evaluation O tictactoe_draw;;
+
+let minimax = function symbol -> function board ->
+  let rec iter = function
+      Leaf(c) -> static_evaluation symbol (second_element_couple c) 
+    | Node(c,l) when (first_element_couple c) = symbol -> max_list (map iter l)
+    | Node(_,l) -> min_list (map iter l)
+    | LazyNode(c, f) -> iter (f())
+  and board_tree = gametree symbol board
+  in match board_tree with
+      Leaf(c) -> Leaf(static_evaluation symbol (second_element_couple c))
+    | Node(_,l) -> let lmax = map iter l in Node(max_list lmax, map (function a -> Leaf a) lmax)
+    | LazyNode(,) -> failwith "This will never happen";;
+
+
+display_tictactoe tictactoe_test;;
+minimax O tictactoe_test;;
+
+let minimax_alphabeta = function symbol -> function board ->
+  let rec iter_min_sons = function current_min -> function l -> match (current_min, l) with
+      (-1.0, _) -> -1.0
+    | (_, []) -> current_min
+    | (_, t::q) -> let value = iter t in iter_min_sons (min value current_min) q
+  and iter_max_sons = function  current_max -> function l -> match (current_max, l) with
+      (1.0, _) -> 1.0
+    | (_, []) -> current_max
+    | (_, t::q) -> let value = iter t in iter_max_sons (max value current_max) q 
+  and iter = function
+      Leaf(c) -> static_evaluation symbol (second_element_couple c) 
+    | Node(c,l) when (first_element_couple c) = symbol -> iter_max_sons (-1.0) l
+    | Node(_,l) -> iter_min_sons 1.0 l
+    | LazyNode(c, f) -> iter (f())
+  and board_tree = gametree symbol board
+  in match board_tree with
+      Leaf(c) -> Leaf(static_evaluation symbol (second_element_couple c))
+    | Node(_,l) -> let lmax = map iter l in Node(max_list lmax, map (function a -> Leaf a) lmax)
+    | LazyNode(,) -> failwith "This will never happen";;
+
+let time f x y =
+    let t = Sys.time() in
+    let fx = f x y in
+    Printf.printf "Execution time: %f s.\n" (Sys.time() -. t);
+    fx
+
+
+
+let select_action = function symb -> function morp ->
+  match (minimax_alphabeta symb morp) with
+      Leaf(_) -> failwith "Final state, no more actions"
+    | Node(m,l) -> draw_randomly_an_element (second_element_couple ((max_list_with_index (label_list l))))
+    | LazyNode(,) -> failwith "The LazyNode case should never happen ";;
+
+
+let game = function () ->
+  let read_int () = (* New read_int to solve compatibility issues with emacs *)
+    let str = read_line() in int_of_string (if str.[(String.length str) - 1] = ';' then String.sub str 0 (String.length str - 2) else str)
+  in let rec ask_move = function limit -> function
+      n when ((n > limit) or (n < 0)) -> begin
+	print_string ("Where do you want to play ? (0-"^(string_of_int limit)^") : ");
+	ask_move limit (read_int());
+      end
+    | n -> n
+  in
+     let rec game_iter = function
+     (m,symbol_human,human_playing) when (end_of_game m) -> 
+	begin
+	  match (is_winning_board m symbol_human, is_winning_board m (next_symbol symbol_human)) with
+	    (true,_) -> print_string "You won the game !\n"
+	  | (_,true) -> print_string "You lost the game !\n"
+	  | (,) -> print_string "This is a draw !\n"
+	end
+    | (m,symbol_human,human_playing) when human_playing -> 
+	begin 
+	  print_string "--------------------------\n";
+	  display_tictactoe_with_choice m;
+	  let nb_possible_choices = number_remaining_plays m in
+	  let state_after_move = next_board m symbol_human (ask_move (nb_possible_choices-1) (nb_possible_choices+1)) 
+	  in 
+	    display_tictactoe state_after_move;
+	    game_iter (state_after_move,symbol_human,false)
+	end
+    | (m,symbol_human, human_playing)  -> 
+	begin
+	  print_string "--------------------------\n";
+	  print_string "The computer played \n";
+	  let symbol_computer = next_symbol symbol_human in
+	  let state_after_move = next_board m symbol_computer (select_action symbol_computer m)
+	  in 
+	    display_tictactoe state_after_move;
+	    game_iter (state_after_move,symbol_human,true)
+	end
+  in 
+    print_string "Do you want to start ? \n (0) Yes\n (1) No\n";
+    let rec ask_choice = function 
+	0 -> game_iter (tictactoe_empty, O, true)
+      | 1 -> game_iter (tictactoe_empty, O, false)
+      | _ -> print_string "Choice (0 ou 1, end with ;; ) : "; ask_choice (read_int()) in
+      ask_choice 2;;
+
+game();;
