@@ -1,2 +1,2 @@
-TICTACTOE (o+Ocaml) / knapsac problem (python)
+TICTACTOE ( en Ocaml) / knapsac problem (en python)
 
